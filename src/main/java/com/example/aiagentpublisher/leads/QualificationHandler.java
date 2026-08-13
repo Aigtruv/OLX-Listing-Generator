@@ -84,7 +84,15 @@ public class QualificationHandler {
         if (!StringUtils.isNumeric(text)) {
             return List.of(QualReplies.INVALID_CHOICE);
         }
-        int index = Integer.parseInt(text) - 1;
+        if (text.length() > String.valueOf(Integer.MAX_VALUE).length()) {
+            return List.of(QualReplies.INVALID_CHOICE);
+        }
+        int index;
+        try {
+            index = Integer.parseInt(text) - 1;
+        } catch (NumberFormatException e) {
+            return List.of(QualReplies.INVALID_CHOICE);
+        }
         if (index < 0 || index >= session.getMenuListingIds().size()) {
             return List.of(QualReplies.INVALID_CHOICE);
         }

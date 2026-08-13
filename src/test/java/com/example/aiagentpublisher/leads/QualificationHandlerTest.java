@@ -128,6 +128,16 @@ class QualificationHandlerTest {
     }
 
     @Test
+    void oversizedMenuNumberReturnsInvalidChoice() {
+        ListingCase listing = published("Ноутбук Dell", 1L);
+        when(listings.findByStatusOrderByCreatedAtDesc(ListingStatus.PUBLISHED)).thenReturn(List.of(listing));
+
+        handler.handle("7701", "привет");
+        assertThat(handler.handle("7701", "9999999999999999999")).containsExactly(QualReplies.INVALID_CHOICE);
+        verify(leads, never()).save(any());
+    }
+
+    @Test
     void stopClearsSessionWithoutSaving() {
         ListingCase listing = published("Ноутбук Dell", 1L);
         when(listings.findByStatusOrderByCreatedAtDesc(ListingStatus.PUBLISHED)).thenReturn(List.of(listing));
