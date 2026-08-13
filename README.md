@@ -22,6 +22,32 @@ export ANTHROPIC_API_KEY=sk-ant-your-key
 Without the env vars the app still starts (bot and Claude calls are disabled) —
 useful for tests.
 
+## WhatsApp qualification bot
+
+Buyers message one shared WhatsApp Cloud API number. The bot shows currently
+PUBLISHED listings, asks city / budget / when they want to buy, stores a lead,
+and pings you in Telegram. It never sends your number to the buyer.
+
+1. Create a Meta app with WhatsApp → add a test (or production) number.
+2. Set the webhook URL to `https://<public-host>/webhooks/whatsapp`
+   (use ngrok or Cloudflare Tunnel when running locally) and the verify token
+   to the same value as `WHATSAPP_VERIFY_TOKEN`.
+3. Subscribe to `messages`.
+
+```bash
+export TELEGRAM_BOT_TOKEN=...
+export ANTHROPIC_API_KEY=...
+export WHATSAPP_TOKEN=...
+export WHATSAPP_PHONE_NUMBER_ID=...
+export WHATSAPP_VERIFY_TOKEN=...
+# optional:
+export WHATSAPP_APP_SECRET=...
+./mvnw spring-boot:run
+```
+
+Put the WhatsApp number on your OLX listing. After `/published` in Telegram,
+buyers can message that number.
+
 ## Use
 
 In your bot's chat:
