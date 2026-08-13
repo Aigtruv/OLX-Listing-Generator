@@ -8,8 +8,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
-import org.telegram.telegrambots.client.okhttp.OkHttpTelegramClient;
 import org.telegram.telegrambots.longpolling.TelegramBotsLongPollingApplication;
+import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 @Component
 public class TelegramBotStarter implements ApplicationRunner {
@@ -18,12 +18,15 @@ public class TelegramBotStarter implements ApplicationRunner {
 
     private final ConversationHandler handler;
     private final String token;
+    private final TelegramClient telegramClient;
     private TelegramBotsLongPollingApplication botsApplication;
 
     public TelegramBotStarter(ConversationHandler handler,
-                              @Value("${app.telegram.token:}") String token) {
+                              @Value("${app.telegram.token:}") String token,
+                              TelegramClient telegramClient) {
         this.handler = handler;
         this.token = token;
+        this.telegramClient = telegramClient;
     }
 
     @Override
@@ -33,7 +36,7 @@ public class TelegramBotStarter implements ApplicationRunner {
             return;
         }
         botsApplication = new TelegramBotsLongPollingApplication();
-        botsApplication.registerBot(token, new ListingBot(handler, new OkHttpTelegramClient(token)));
+        botsApplication.registerBot(token, new ListingBot(handler, telegramClient));
         log.info("Telegram bot started (long polling)");
     }
 
