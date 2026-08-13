@@ -13,11 +13,16 @@ import static org.mockito.Mockito.when;
 class InboundMessageDeduperTest {
 
     @Test
-    void firstTimeIsNewSecondTimeIsDuplicate() {
+    void checkingDoesNotRecordUntilMarkedSeen() {
         InboundMessageDeduper deduper =
                 new InboundMessageDeduper(Clock.systemUTC(), Duration.ofHours(24));
-        assertThat(deduper.seen("wamid.1")).isFalse();
-        assertThat(deduper.seen("wamid.1")).isTrue();
+
+        assertThat(deduper.isDuplicate("wamid.1")).isFalse();
+        assertThat(deduper.isDuplicate("wamid.1")).isFalse();
+
+        deduper.markSeen("wamid.1");
+
+        assertThat(deduper.isDuplicate("wamid.1")).isTrue();
     }
 
     @Test
@@ -26,7 +31,9 @@ class InboundMessageDeduperTest {
         Clock clock = mock(Clock.class);
         when(clock.instant()).thenReturn(start, start.plus(Duration.ofHours(25)));
         InboundMessageDeduper deduper = new InboundMessageDeduper(clock, Duration.ofHours(24));
-        assertThat(deduper.seen("wamid.1")).isFalse();
-        assertThat(deduper.seen("wamid.1")).isFalse();
+
+        deduper.markSeen("wamid.1");
+
+        assertThat(deduper.isDuplicate("wamid.1")).isFalse();
     }
 }

@@ -67,12 +67,23 @@ public class WhatsAppWebhookController {
         }
         List<WhatsAppInbound> messages = parser.parse(body);
         for (WhatsAppInbound inbound : messages) {
-            if (deduper.seen(inbound.messageId())) {
+            if (deduper.isDuplicate(inbound.messageId())) {
                 continue;
             }
-            List<String> replies = handler.handle(inbound.waId(), inbound.text());
+            List<String> replies;
+            try {
+                replies = handler.handle(inbound.waId(), inbound.text());
+            } catch (Exception e) {
+                log.error("Failed to handle WhatsApp message {}", inbound.messageId(), e);
+                return ResponseEntity.internalServerError().build();
+            }
+            deduper.markSeen(inbound.messageId());
             for (String reply : replies) {
-                sender.sendText(inbound.waId(), reply);
+                try {
+                    sender.sendText(inbound.waId(), reply);
+                } catch (Exception e) {
+                    log.error("Failed to send reply for WhatsApp message {}", inbound.messageId(), e);
+                }
             }
         }
         return ResponseEntity.ok().build();

@@ -8,7 +8,6 @@ import com.example.aiagentpublisher.llm.CategorySuggestion;
 import com.example.aiagentpublisher.llm.GeneratedListing;
 import com.example.aiagentpublisher.llm.ListingAnalysis;
 import com.example.aiagentpublisher.llm.LlmGateway;
-import com.example.aiagentpublisher.leads.SellerNotifier;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -34,9 +33,6 @@ class ListingFlowIntegrationTest {
 
     @MockitoBean
     private LlmGateway llmGateway;
-
-    @MockitoBean
-    private SellerNotifier sellerNotifier;
 
     @Test
     void fullFlowPersistsCaseAndPublishesIt() {

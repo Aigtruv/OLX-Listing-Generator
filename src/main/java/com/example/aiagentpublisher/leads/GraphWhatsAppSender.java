@@ -3,6 +3,7 @@ package com.example.aiagentpublisher.leads;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -23,7 +24,7 @@ public class GraphWhatsAppSender implements WhatsAppSender {
 
     public GraphWhatsAppSender(@Value("${app.whatsapp.token:}") String token,
                                @Value("${app.whatsapp.phone-number-id:}") String phoneNumberId,
-                               RestClient restClient) {
+                               @Qualifier("whatsAppRestClient") RestClient restClient) {
         this.token = token;
         this.phoneNumberId = phoneNumberId;
         this.restClient = restClient;

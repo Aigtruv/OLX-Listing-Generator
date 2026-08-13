@@ -21,13 +21,13 @@ public class InboundMessageDeduper {
         this.ttl = ttl;
     }
 
-    public boolean seen(String messageId) {
+    public boolean isDuplicate(String messageId) {
         Instant now = clock.instant();
         Instant previous = seenAt.get(messageId);
-        if (previous != null && Duration.between(previous, now).compareTo(ttl) <= 0) {
-            return true;
-        }
-        seenAt.put(messageId, now);
-        return false;
+        return previous != null && Duration.between(previous, now).compareTo(ttl) <= 0;
+    }
+
+    public void markSeen(String messageId) {
+        seenAt.put(messageId, clock.instant());
     }
 }
