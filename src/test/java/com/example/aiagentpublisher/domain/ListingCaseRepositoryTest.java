@@ -60,4 +60,17 @@ class ListingCaseRepositoryTest {
 
         assertThat(latest.getGeneratedTitle()).isEqualTo("newer");
     }
+
+    @Test
+    void findsPublishedCasesNewestFirst() {
+        Instant base = Instant.parse("2026-08-13T10:00:00Z");
+        repository.save(newCase(1L, ListingStatus.CREATED, base, "created"));
+        repository.save(newCase(1L, ListingStatus.PUBLISHED, base.plusSeconds(10), "older published"));
+        repository.save(newCase(2L, ListingStatus.PUBLISHED, base.plusSeconds(20), "newer published"));
+        repository.flush();
+
+        assertThat(repository.findByStatusOrderByCreatedAtDesc(ListingStatus.PUBLISHED))
+                .extracting(ListingCase::getGeneratedTitle)
+                .containsExactly("newer published", "older published");
+    }
 }

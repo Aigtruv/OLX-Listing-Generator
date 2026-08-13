@@ -11,4 +11,6 @@ public interface ListingCaseRepository extends JpaRepository<ListingCase, UUID> 
     List<ListingCase> findByChatIdOrderByCreatedAtDesc(long chatId);
 
     Optional<ListingCase> findFirstByChatIdAndStatusOrderByCreatedAtDesc(long chatId, ListingStatus status);
+
+    List<ListingCase> findByStatusOrderByCreatedAtDesc(ListingStatus status);
 }
