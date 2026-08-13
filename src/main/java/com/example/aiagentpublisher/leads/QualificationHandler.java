@@ -4,8 +4,8 @@ import com.example.aiagentpublisher.domain.ListingCase;
 import com.example.aiagentpublisher.domain.ListingCaseRepository;
 import com.example.aiagentpublisher.domain.ListingStatus;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -15,19 +15,12 @@ import java.util.List;
 public class QualificationHandler {
 
     private static final int MAX_MENU = 10;
-    private static final SellerNotifier NO_OP_NOTIFIER = (chatId, message) -> {
-    };
+    private static final Logger log = LoggerFactory.getLogger(QualificationHandler.class);
 
     private final QualificationSessionStore sessions;
     private final ListingCaseRepository listings;
     private final LeadRepository leads;
     private final SellerNotifier notifier;
-
-    @Autowired
-    public QualificationHandler(QualificationSessionStore sessions, ListingCaseRepository listings,
-                                LeadRepository leads, ObjectProvider<SellerNotifier> notifierProvider) {
-        this(sessions, listings, leads, notifierProvider.getIfAvailable(() -> NO_OP_NOTIFIER));
-    }
 
     public QualificationHandler(QualificationSessionStore sessions, ListingCaseRepository listings,
                                 LeadRepository leads, SellerNotifier notifier) {
@@ -114,11 +107,15 @@ public class QualificationHandler {
         lead.setTimeframe(timeframe);
         lead.setStatus(LeadStatus.NEW);
         leads.save(lead);
-        String title = StringUtils.defaultIfBlank(listingCase.getGeneratedTitle(), listingCase.getIdeaText());
-        notifier.notifyNewLead(listingCase.getChatId(),
-                QualReplies.sellerPing(title, session.getBuyerWaId(), session.getCity(),
-                        session.getBudget(), timeframe));
         sessions.reset(session.getBuyerWaId());
+        String title = StringUtils.defaultIfBlank(listingCase.getGeneratedTitle(), listingCase.getIdeaText());
+        try {
+            notifier.notifyNewLead(listingCase.getChatId(),
+                    QualReplies.sellerPing(title, session.getBuyerWaId(), session.getCity(),
+                            session.getBudget(), timeframe));
+        } catch (RuntimeException e) {
+            log.error("Failed to notify seller about new lead for listing {}", listingCase.getId(), e);
+        }
         return List.of(QualReplies.THANKS);
     }
 

@@ -18,7 +18,9 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -95,6 +97,24 @@ class QualificationHandlerTest {
         assertThat(saved.getListingCase()).isSameAs(listing);
         verify(notifier).notifyNewLead(99L, QualReplies.sellerPing("Ноутбук Dell", "7701",
                 "Алматы", "150000", "на этой неделе"));
+    }
+
+    @Test
+    void notificationFailureStillReturnsThanksAndResetsSession() {
+        ListingCase listing = published("Ноутбук Dell", 99L);
+        when(listings.findByStatusOrderByCreatedAtDesc(ListingStatus.PUBLISHED)).thenReturn(List.of(listing));
+        when(listings.findById(listing.getId())).thenReturn(Optional.of(listing));
+        doThrow(new RuntimeException("notification unavailable"))
+                .when(notifier).notifyNewLead(any(Long.class), any(String.class));
+
+        handler.handle("7701", "привет");
+        handler.handle("7701", "1");
+        handler.handle("7701", "Алматы");
+        handler.handle("7701", "150000");
+
+        assertThat(handler.handle("7701", "на этой неделе")).containsExactly(QualReplies.THANKS);
+        assertThat(handler.handle("7701", "на этой неделе").get(0)).contains("1. Ноутбук Dell");
+        verify(leads, times(1)).save(any(Lead.class));
     }
 
     @Test
