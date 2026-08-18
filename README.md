@@ -13,14 +13,18 @@ for future dashboards.
 
 ## Run
 
+Start Postgres, then the app:
+
 ```bash
+docker compose up -d
 export TELEGRAM_BOT_TOKEN=123456:ABC-your-token
 export DEEPSEEK_API_KEY=sk-your-deepseek-key
 ./mvnw spring-boot:run
 ```
 
-Without the env vars the app still starts (bot and DeepSeek calls are disabled) —
-useful for tests.
+Without the Telegram/DeepSeek env vars the app still starts if Postgres is up
+(bot and DeepSeek calls are disabled). If Postgres is down, the app fails to
+start. Tests do not need Docker.
 
 ## WhatsApp qualification bot
 
@@ -42,6 +46,7 @@ export WHATSAPP_PHONE_NUMBER_ID=...
 export WHATSAPP_VERIFY_TOKEN=...
 # optional:
 export WHATSAPP_APP_SECRET=...
+docker compose up -d
 ./mvnw spring-boot:run
 ```
 
@@ -61,7 +66,9 @@ Other commands: `/status` — your listings and statuses, `/cancel` — abort.
 
 ## Data
 
-H2 database file at `./data/listings.mv.db`. Delete it to start fresh.
+PostgreSQL via `docker-compose.yml` (database `listings`). Hibernate creates
+tables on startup. `docker compose down -v` wipes the volume. The old H2 file
+`./data/listings.mv.db` is unused.
 
 ## Tests
 

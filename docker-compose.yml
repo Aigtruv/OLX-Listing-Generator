@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: listings
+      POSTGRES_USER: listings
+      POSTGRES_PASSWORD: listings
+    ports:
+      - "5432:5432"
+    volumes:
+      - listings-pg:/var/lib/postgresql/data
+
+volumes:
+  listings-pg:
