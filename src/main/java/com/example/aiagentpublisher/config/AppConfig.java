@@ -35,4 +35,15 @@ public class AppConfig {
                 .requestFactory(requestFactory)
                 .build();
     }
+
+    @Bean("deepSeekRestClient")
+    public RestClient deepSeekRestClient(@Value("${app.deepseek.base-url}") String baseUrl) {
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(Duration.ofSeconds(5));
+        requestFactory.setReadTimeout(Duration.ofSeconds(30));
+        return RestClient.builder()
+                .baseUrl(baseUrl)
+                .requestFactory(requestFactory)
+                .build();
+    }
 }

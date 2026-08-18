@@ -58,12 +58,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.anthropic</groupId>
-            <artifactId>anthropic-java</artifactId>
-            <version>2.34.0</version>
-        </dependency>
-
-        <dependency>
             <groupId>org.telegram</groupId>
             <artifactId>telegrambots-longpolling</artifactId>
             <version>9.0.0</version>

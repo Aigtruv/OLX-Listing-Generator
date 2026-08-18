@@ -9,17 +9,17 @@ for future dashboards.
 
 1. Create a bot: open Telegram, talk to `@BotFather`, send `/newbot`, follow the
    prompts, copy the token.
-2. Get an Anthropic API key: https://platform.claude.com/
+2. Get a DeepSeek API key: https://platform.deepseek.com/
 
 ## Run
 
 ```bash
 export TELEGRAM_BOT_TOKEN=123456:ABC-your-token
-export ANTHROPIC_API_KEY=sk-ant-your-key
+export DEEPSEEK_API_KEY=sk-your-deepseek-key
 ./mvnw spring-boot:run
 ```
 
-Without the env vars the app still starts (bot and Claude calls are disabled) —
+Without the env vars the app still starts (bot and DeepSeek calls are disabled) —
 useful for tests.
 
 ## WhatsApp qualification bot
@@ -36,7 +36,7 @@ and pings you in Telegram. It never sends your number to the buyer.
 
 ```bash
 export TELEGRAM_BOT_TOKEN=...
-export ANTHROPIC_API_KEY=...
+export DEEPSEEK_API_KEY=...
 export WHATSAPP_TOKEN=...
 export WHATSAPP_PHONE_NUMBER_ID=...
 export WHATSAPP_VERIFY_TOKEN=...
