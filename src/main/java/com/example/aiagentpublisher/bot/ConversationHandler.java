@@ -4,6 +4,7 @@ import com.example.aiagentpublisher.domain.ListingCase;
 import com.example.aiagentpublisher.domain.ListingCaseRepository;
 import com.example.aiagentpublisher.domain.ListingStatus;
 import com.example.aiagentpublisher.llm.GeneratedListing;
+import com.example.aiagentpublisher.olx.OlxListingFetcher;
 import com.example.aiagentpublisher.pipeline.ListingPipeline;
 import com.example.aiagentpublisher.pipeline.PipelineResult;
 import org.apache.commons.lang3.StringUtils;
@@ -21,12 +22,14 @@ public class ConversationHandler {
     private final ConversationSessionStore sessions;
     private final ListingPipeline pipeline;
     private final ListingCaseRepository repository;
+    private final OlxListingFetcher olxListingFetcher;
 
     public ConversationHandler(ConversationSessionStore sessions, ListingPipeline pipeline,
-                               ListingCaseRepository repository) {
+                               ListingCaseRepository repository, OlxListingFetcher olxListingFetcher) {
         this.sessions = sessions;
         this.pipeline = pipeline;
         this.repository = repository;
+        this.olxListingFetcher = olxListingFetcher;
     }
 
     public List<String> handle(long chatId, String rawText) {
@@ -111,7 +114,23 @@ public class ConversationHandler {
         if (session.getExamples().size() >= MAX_EXAMPLES) {
             return List.of(BotReplies.EXAMPLES_LIMIT);
         }
-        session.getExamples().add(text);
+        if (olxListingFetcher.isListingUrl(text)) {
+            return olxListingFetcher.fetch(text)
+                    .map(listing -> acceptExample(session, listing.formatForPipeline()))
+                    .orElseGet(() -> {
+                        session.setAwaitingPasteFallback(true);
+                        return List.of(BotReplies.OLX_FETCH_FAILED);
+                    });
+        }
+        if (session.isAwaitingPasteFallback()) {
+            return acceptExample(session, text);
+        }
+        return List.of(BotReplies.ASK_OLX_URL);
+    }
+
+    private List<String> acceptExample(ConversationSession session, String exampleText) {
+        session.getExamples().add(exampleText);
+        session.setAwaitingPasteFallback(false);
         return List.of(BotReplies.EXAMPLE_ACCEPTED.formatted(session.getExamples().size()));
     }
 

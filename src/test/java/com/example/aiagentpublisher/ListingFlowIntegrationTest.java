@@ -8,12 +8,15 @@ import com.example.aiagentpublisher.llm.CategorySuggestion;
 import com.example.aiagentpublisher.llm.GeneratedListing;
 import com.example.aiagentpublisher.llm.ListingAnalysis;
 import com.example.aiagentpublisher.llm.LlmGateway;
+import com.example.aiagentpublisher.olx.OlxListing;
+import com.example.aiagentpublisher.olx.OlxListingFetcher;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -34,6 +37,9 @@ class ListingFlowIntegrationTest {
     @MockitoBean
     private LlmGateway llmGateway;
 
+    @MockitoBean
+    private OlxListingFetcher olxListingFetcher;
+
     @Test
     void fullFlowPersistsCaseAndPublishesIt() {
         when(llmGateway.generate(anyString(), anyString(), eq(CategorySuggestion.class)))
@@ -44,13 +50,22 @@ class ListingFlowIntegrationTest {
                 .thenReturn(new GeneratedListing("Ноутбук Dell XPS", "Оригинальное описание.",
                         "180 000 тг", List.of("фото экрана")));
 
+        when(olxListingFetcher.isListingUrl(anyString())).thenAnswer(inv -> {
+            String text = inv.getArgument(0);
+            return text != null && text.contains("olx.kz");
+        });
+        when(olxListingFetcher.fetch(anyString())).thenAnswer(inv -> {
+            String url = inv.getArgument(0);
+            return Optional.of(new OlxListing(url, "t", "1 тг", url));
+        });
+
         long chatId = 100L;
         handler.handle(chatId, "/new");
         handler.handle(chatId, "продаю ноутбуки");
         handler.handle(chatId, "да");
-        handler.handle(chatId, "пример 1");
-        handler.handle(chatId, "пример 2");
-        handler.handle(chatId, "пример 3");
+        handler.handle(chatId, "https://www.olx.kz/d/obyavlenie/p1.html");
+        handler.handle(chatId, "https://www.olx.kz/d/obyavlenie/p2.html");
+        handler.handle(chatId, "https://www.olx.kz/d/obyavlenie/p3.html");
         List<String> replies = handler.handle(chatId, "/done");
 
         assertThat(String.join("\n", replies)).contains("Ноутбук Dell XPS");

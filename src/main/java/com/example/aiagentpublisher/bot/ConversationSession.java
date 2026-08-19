@@ -12,6 +12,7 @@ public class ConversationSession {
     private String suggestedCategory;
     private String category;
     private final List<String> examples = new ArrayList<>();
+    private boolean awaitingPasteFallback;
     private Instant lastActivity;
 
     public ConversationSession(long chatId, Instant now) {
@@ -61,6 +62,14 @@ public class ConversationSession {
 
     public List<String> getExamples() {
         return examples;
+    }
+
+    public boolean isAwaitingPasteFallback() {
+        return awaitingPasteFallback;
+    }
+
+    public void setAwaitingPasteFallback(boolean awaitingPasteFallback) {
+        this.awaitingPasteFallback = awaitingPasteFallback;
     }
 
     public Instant getLastActivity() {

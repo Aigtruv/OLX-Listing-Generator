@@ -5,6 +5,8 @@ import com.example.aiagentpublisher.domain.ListingCaseRepository;
 import com.example.aiagentpublisher.domain.ListingStatus;
 import com.example.aiagentpublisher.llm.GeneratedListing;
 import com.example.aiagentpublisher.llm.ListingAnalysis;
+import com.example.aiagentpublisher.olx.OlxListing;
+import com.example.aiagentpublisher.olx.OlxListingFetcher;
 import com.example.aiagentpublisher.pipeline.ListingPipeline;
 import com.example.aiagentpublisher.pipeline.PipelineResult;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,6 +26,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -36,6 +39,9 @@ class ConversationHandlerTest {
     @Mock
     private ListingCaseRepository repository;
 
+    @Mock
+    private OlxListingFetcher olxListingFetcher;
+
     private ConversationHandler handler;
 
     private static PipelineResult okResult() {
@@ -46,11 +52,28 @@ class ConversationHandlerTest {
                 false);
     }
 
+    private static String listingUrl(int n) {
+        return "https://www.olx.kz/d/obyavlenie/p" + n + ".html";
+    }
+
+    private static String formattedExample(int n) {
+        String url = listingUrl(n);
+        return new OlxListing(url, "t", "1 тг", url).formatForPipeline();
+    }
+
     @BeforeEach
     void setUp() {
         ConversationSessionStore store =
                 new ConversationSessionStore(Clock.systemUTC(), Duration.ofHours(24));
-        handler = new ConversationHandler(store, pipeline, repository);
+        handler = new ConversationHandler(store, pipeline, repository, olxListingFetcher);
+        lenient().when(olxListingFetcher.isListingUrl(anyString())).thenAnswer(inv -> {
+            String text = inv.getArgument(0);
+            return text != null && text.contains("olx.kz");
+        });
+        lenient().when(olxListingFetcher.fetch(anyString())).thenAnswer(inv -> {
+            String url = inv.getArgument(0);
+            return Optional.of(new OlxListing(url, "t", "1 тг", url));
+        });
     }
 
     private void driveToExamples(long chatId) {
@@ -64,11 +87,12 @@ class ConversationHandlerTest {
     void fullHappyFlowProducesListingMessages() {
         driveToExamples(1L);
         when(pipeline.run(eq(1L), eq("продаю ноутбуки"), eq("Электроника → Ноутбуки"),
-                eq(List.of("пример 1", "пример 2", "пример 3")))).thenReturn(okResult());
+                eq(List.of(formattedExample(1), formattedExample(2), formattedExample(3)))))
+                .thenReturn(okResult());
 
-        handler.handle(1L, "пример 1");
-        handler.handle(1L, "пример 2");
-        handler.handle(1L, "пример 3");
+        handler.handle(1L, listingUrl(1));
+        handler.handle(1L, listingUrl(2));
+        handler.handle(1L, listingUrl(3));
         List<String> replies = handler.handle(1L, "/done");
 
         String all = String.join("\n", replies);
@@ -80,15 +104,16 @@ class ConversationHandlerTest {
     @Test
     void categoryCorrectionUsesUserText() {
         when(pipeline.classifyCategory("идея")).thenReturn("Неверная категория");
-        when(pipeline.run(anyLong(), anyString(), eq("Моя категория"), anyList())).thenReturn(okResult());
+        when(pipeline.run(anyLong(), anyString(), eq("Моя категория"),
+                eq(List.of(formattedExample(1))))).thenReturn(okResult());
 
         handler.handle(2L, "/new");
         handler.handle(2L, "идея");
         handler.handle(2L, "Моя категория");
-        handler.handle(2L, "пример");
+        handler.handle(2L, listingUrl(1));
         handler.handle(2L, "/done");
 
-        verify(pipeline).run(eq(2L), eq("идея"), eq("Моя категория"), eq(List.of("пример")));
+        verify(pipeline).run(eq(2L), eq("идея"), eq("Моя категория"), eq(List.of(formattedExample(1))));
     }
 
     @Test
@@ -96,7 +121,7 @@ class ConversationHandlerTest {
         driveToExamples(3L);
         when(pipeline.run(anyLong(), anyString(), anyString(), anyList())).thenReturn(okResult());
 
-        handler.handle(3L, "пример 1");
+        handler.handle(3L, listingUrl(1));
         List<String> replies = handler.handle(3L, "/done");
 
         assertThat(replies.get(0)).isEqualTo(BotReplies.FEW_EXAMPLES_WARNING);
@@ -115,10 +140,10 @@ class ConversationHandlerTest {
     void sixthExampleIsRejected() {
         driveToExamples(5L);
         for (int i = 1; i <= 5; i++) {
-            handler.handle(5L, "пример " + i);
+            handler.handle(5L, listingUrl(i));
         }
 
-        List<String> replies = handler.handle(5L, "лишний пример");
+        List<String> replies = handler.handle(5L, listingUrl(6));
 
         assertThat(replies).containsExactly(BotReplies.EXAMPLES_LIMIT);
     }
@@ -126,7 +151,7 @@ class ConversationHandlerTest {
     @Test
     void pipelineFailureKeepsStateAndExamples() {
         driveToExamples(6L);
-        handler.handle(6L, "пример 1");
+        handler.handle(6L, listingUrl(1));
         when(pipeline.run(anyLong(), anyString(), anyString(), anyList()))
                 .thenThrow(new RuntimeException("api down"))
                 .thenReturn(okResult());
@@ -188,5 +213,26 @@ class ConversationHandlerTest {
 
         assertThat(replies).containsExactly(BotReplies.CANCELLED);
         assertThat(handler.handle(11L, "просто текст")).containsExactly(BotReplies.HINT);
+    }
+
+    @Test
+    void nonOlxTextWhileCollectingAsksForUrl() {
+        driveToExamples(20L);
+
+        assertThat(handler.handle(20L, "просто текст")).containsExactly(BotReplies.ASK_OLX_URL);
+    }
+
+    @Test
+    void fetchFailureThenPasteIsAccepted() {
+        driveToExamples(21L);
+        String url = listingUrl(1);
+        when(olxListingFetcher.fetch(url)).thenReturn(Optional.empty());
+        when(pipeline.run(anyLong(), anyString(), anyString(), eq(List.of("вставленный текст"))))
+                .thenReturn(okResult());
+
+        assertThat(handler.handle(21L, url)).containsExactly(BotReplies.OLX_FETCH_FAILED);
+        handler.handle(21L, "вставленный текст");
+        List<String> replies = handler.handle(21L, "/done");
+        assertThat(String.join("\n", replies)).contains("Ноутбук Dell");
     }
 }

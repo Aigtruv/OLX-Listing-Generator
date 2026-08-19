@@ -7,12 +7,18 @@ public final class BotReplies {
     public static final String CATEGORY_CONFIRM =
             "Категория: %s%nВерно? Ответьте «да» или пришлите свой вариант категории.";
     public static final String ASK_EXAMPLES =
-            "Теперь пришлите 3–5 текстов успешных объявлений из этой категории "
-                    + "(каждое отдельным сообщением). Когда закончите — /done.";
+            "Теперь пришлите 3–5 ссылок на объявления olx.kz (каждое отдельным сообщением), например:\n"
+                    + "https://www.olx.kz/d/obyavlenie/noutbuk-dell-inspiron-3162-IDqzxSX.html\n"
+                    + "Когда закончите — /done.";
+    public static final String ASK_OLX_URL =
+            "Пришлите ссылку на объявление olx.kz, например:\n"
+                    + "https://www.olx.kz/d/obyavlenie/…";
+    public static final String OLX_FETCH_FAILED =
+            "Не удалось открыть объявление. Пришлите другую ссылку или вставьте текст объявления.";
     public static final String EXAMPLE_ACCEPTED = "Пример %d принят. Ещё один или /done.";
     public static final String EXAMPLES_LIMIT = "Максимум 5 примеров. Отправьте /done.";
     public static final String NEED_EXAMPLES =
-            "Нужен хотя бы один пример объявления. Пришлите текст или /cancel.";
+            "Нужен хотя бы один пример объявления. Пришлите ссылку olx.kz или /cancel.";
     public static final String FEW_EXAMPLES_WARNING =
             "Примеров меньше трёх — анализ будет менее точным, но продолжаю.";
     public static final String LLM_ERROR =
