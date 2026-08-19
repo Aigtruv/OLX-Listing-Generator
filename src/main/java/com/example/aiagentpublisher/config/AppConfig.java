@@ -46,4 +46,14 @@ public class AppConfig {
                 .requestFactory(requestFactory)
                 .build();
     }
+
+    @Bean("olxRestClient")
+    public RestClient olxRestClient() {
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(Duration.ofSeconds(5));
+        requestFactory.setReadTimeout(Duration.ofSeconds(10));
+        return RestClient.builder()
+                .requestFactory(requestFactory)
+                .build();
+    }
 }
