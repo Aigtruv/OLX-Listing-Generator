@@ -3,7 +3,8 @@ package com.example.aiagentpublisher.domain;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
-import jakarta.persistence.Lob;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.util.UUID;
 
@@ -14,10 +15,10 @@ public class ExampleListing {
     @GeneratedValue
     private UUID id;
 
-    @Lob
+    @JdbcTypeCode(SqlTypes.LONG32VARCHAR)
     private String rawText;
 
-    @Lob
+    @JdbcTypeCode(SqlTypes.LONG32VARCHAR)
     private String analysis;
 
     public UUID getId() {

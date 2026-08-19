@@ -1,10 +1,15 @@
 package com.example.aiagentpublisher.domain;
 
+import jakarta.persistence.Lob;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 
+import java.lang.reflect.Field;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -43,6 +48,23 @@ class ListingCaseRepositoryTest {
                 .containsExactly("пример 1", "пример 2");
         assertThat(loaded.getCreatedAt()).isNotNull();
         assertThat(loaded.getStatus()).isEqualTo(ListingStatus.CREATED);
+    }
+
+    @Test
+    void mapsLongTextFieldsAsLongVarcharInsteadOfLobs() throws NoSuchFieldException {
+        List<Field> longTextFields = List.of(
+                ListingCase.class.getDeclaredField("analysisSummary"),
+                ListingCase.class.getDeclaredField("generatedDescription"),
+                ExampleListing.class.getDeclaredField("rawText"),
+                ExampleListing.class.getDeclaredField("analysis"));
+
+        assertThat(longTextFields)
+                .allSatisfy(field -> {
+                    assertThat(field.getAnnotation(Lob.class)).isNull();
+                    assertThat(field.getAnnotation(JdbcTypeCode.class))
+                            .extracting(JdbcTypeCode::value)
+                            .isEqualTo(SqlTypes.LONG32VARCHAR);
+                });
     }
 
     @Test

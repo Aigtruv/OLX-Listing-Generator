@@ -9,11 +9,12 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Lob;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderColumn;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -39,13 +40,13 @@ public class ListingCase {
     @OrderColumn(name = "position")
     private List<ExampleListing> examples = new ArrayList<>();
 
-    @Lob
+    @JdbcTypeCode(SqlTypes.LONG32VARCHAR)
     private String analysisSummary;
 
     @Column(length = 1000)
     private String generatedTitle;
 
-    @Lob
+    @JdbcTypeCode(SqlTypes.LONG32VARCHAR)
     private String generatedDescription;
 
     @Column(length = 2000)

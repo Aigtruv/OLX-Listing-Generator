@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import javax.sql.DataSource;
+import java.sql.Connection;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -20,6 +21,8 @@ class AiAgentPublisherApplicationTests {
 
     @Test
     void testsUseH2() throws Exception {
-        assertThat(dataSource.getConnection().getMetaData().getURL()).contains("h2");
+        try (Connection connection = dataSource.getConnection()) {
+            assertThat(connection.getMetaData().getURL()).contains("h2");
+        }
     }
 }

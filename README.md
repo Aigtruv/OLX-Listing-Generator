@@ -16,7 +16,7 @@ for future dashboards.
 Start Postgres, then the app:
 
 ```bash
-docker compose up -d
+docker compose up -d --wait
 export TELEGRAM_BOT_TOKEN=123456:ABC-your-token
 export DEEPSEEK_API_KEY=sk-your-deepseek-key
 ./mvnw spring-boot:run
@@ -46,7 +46,7 @@ export WHATSAPP_PHONE_NUMBER_ID=...
 export WHATSAPP_VERIFY_TOKEN=...
 # optional:
 export WHATSAPP_APP_SECRET=...
-docker compose up -d
+docker compose up -d --wait
 ./mvnw spring-boot:run
 ```
 
