@@ -42,7 +42,7 @@ public class DeepSeekGateway implements LlmGateway {
         String content = chat(StringUtils.defaultString(systemPrompt) + jsonHint(responseType),
                 StringUtils.defaultString(userPrompt));
         try {
-            return objectMapper.readValue(unwrapJson(content), responseType);
+            return objectMapper.readValue(jsonForType(content, responseType), responseType);
         } catch (Exception e) {
             throw new IllegalStateException("DeepSeek returned JSON that does not match " + responseType.getSimpleName(), e);
         }
@@ -53,6 +53,7 @@ public class DeepSeekGateway implements LlmGateway {
                 "model", model,
                 "max_tokens", 8192,
                 "response_format", Map.of("type", "json_object"),
+                "thinking", Map.of("type", "disabled"),
                 "messages", List.of(
                         Map.of("role", "system", "content", systemPrompt),
                         Map.of("role", "user", "content", userPrompt)));
@@ -69,7 +70,7 @@ public class DeepSeekGateway implements LlmGateway {
                 return contentFromCompletion(raw);
             } catch (RestClientException e) {
                 last = e;
-                log.warn("DeepSeek attempt {}/{} failed", attempt, MAX_ATTEMPTS);
+                log.warn("DeepSeek attempt {}/{} failed: {}", attempt, MAX_ATTEMPTS, e.getMessage());
             }
         }
         throw new IllegalStateException("DeepSeek request failed after retries", last);
@@ -92,6 +93,20 @@ public class DeepSeekGateway implements LlmGateway {
         }
     }
 
+    private String jsonForType(String content, Class<?> responseType) {
+        String trimmed = unwrapJson(content);
+        try {
+            JsonNode root = objectMapper.readTree(trimmed);
+            JsonNode wrapped = root.get(responseType.getSimpleName());
+            if (wrapped != null && wrapped.isObject()) {
+                return wrapped.toString();
+            }
+        } catch (Exception ignored) {
+            return trimmed;
+        }
+        return trimmed;
+    }
+
     private static String unwrapJson(String content) {
         String trimmed = StringUtils.trim(content);
         if (StringUtils.startsWith(trimmed, "```")) {
@@ -104,13 +119,17 @@ public class DeepSeekGateway implements LlmGateway {
     }
 
     private static String jsonHint(Class<?> responseType) {
+        String shape = switch (responseType.getSimpleName()) {
+            case "CategorySuggestion" -> "{\"categoryPath\": string}";
+            case "ListingAnalysis" -> "{\"perExampleAnalysis\": [string], \"winningTemplate\": string}";
+            case "GeneratedListing" ->
+                    "{\"title\": string, \"description\": string, \"priceAdvice\": string, \"photoChecklist\": [string]}";
+            default -> "{}";
+        };
         return """
 
-                Reply with one JSON object only. Field names must match exactly:
-                CategorySuggestion: {"categoryPath": string}
-                ListingAnalysis: {"perExampleAnalysis": [string], "winningTemplate": string}
-                GeneratedListing: {"title": string, "description": string, "priceAdvice": string, "photoChecklist": [string]}
-                Target type: %s.
-                """.formatted(responseType.getSimpleName());
+                Reply with one JSON object only. Do not wrap it in another key. Shape:
+                %s
+                """.formatted(shape);
     }
 }

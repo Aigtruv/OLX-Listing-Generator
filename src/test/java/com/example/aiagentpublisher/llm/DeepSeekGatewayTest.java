@@ -59,6 +59,42 @@ class DeepSeekGatewayTest {
         server.verify();
     }
 
+    @Test
+    void unwrapsTypeNameWrapperForListingAnalysis() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("http://localhost");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        String inner = "{\"ListingAnalysis\":{\"perExampleAnalysis\":[\"анализ\"],"
+                + "\"winningTemplate\":\"шаблон\"}}";
+        String body = "{\"choices\":[{\"message\":{\"content\":" + quote(inner) + "}}]}";
+        server.expect(requestTo("http://localhost/chat/completions"))
+                .andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
+
+        DeepSeekGateway gateway = new DeepSeekGateway("sk-test", "deepseek-chat", builder.build());
+        ListingAnalysis analysis = gateway.generate("sys", "user", ListingAnalysis.class);
+
+        assertThat(analysis.perExampleAnalysis()).isEqualTo(List.of("анализ"));
+        assertThat(analysis.winningTemplate()).isEqualTo("шаблон");
+        server.verify();
+    }
+
+    @Test
+    void unwrapsTypeNameWrapperForGeneratedListing() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("http://localhost");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        String inner = "{\"GeneratedListing\":{\"title\":\"Ноутбук Dell\",\"description\":\"Описание.\","
+                + "\"priceAdvice\":\"150000 тг\",\"photoChecklist\":[\"экран\"]}}";
+        String body = "{\"choices\":[{\"message\":{\"content\":" + quote(inner) + "}}]}";
+        server.expect(requestTo("http://localhost/chat/completions"))
+                .andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
+
+        DeepSeekGateway gateway = new DeepSeekGateway("sk-test", "deepseek-chat", builder.build());
+        GeneratedListing listing = gateway.generate("sys", "user", GeneratedListing.class);
+
+        assertThat(listing.title()).isEqualTo("Ноутбук Dell");
+        assertThat(listing.photoChecklist()).isEqualTo(List.of("экран"));
+        server.verify();
+    }
+
     private static String quote(String json) {
         return "\"" + json.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
     }

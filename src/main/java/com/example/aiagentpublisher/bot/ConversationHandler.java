@@ -8,6 +8,8 @@ import com.example.aiagentpublisher.olx.OlxListingFetcher;
 import com.example.aiagentpublisher.pipeline.ListingPipeline;
 import com.example.aiagentpublisher.pipeline.PipelineResult;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -16,6 +18,7 @@ import java.util.List;
 @Service
 public class ConversationHandler {
 
+    private static final Logger log = LoggerFactory.getLogger(ConversationHandler.class);
     private static final int MAX_EXAMPLES = 5;
     private static final int RECOMMENDED_EXAMPLES = 3;
 
@@ -97,6 +100,7 @@ public class ConversationHandler {
             session.setState(ConversationState.AWAITING_CATEGORY_CONFIRM);
             return List.of(BotReplies.CATEGORY_CONFIRM.formatted(category));
         } catch (RuntimeException e) {
+            log.error("Category classification failed for chat {}", session.getChatId(), e);
             return List.of(BotReplies.LLM_ERROR);
         }
     }
@@ -152,6 +156,7 @@ public class ConversationHandler {
             sessions.reset(chatId);
             replies.addAll(formatResult(result));
         } catch (RuntimeException e) {
+            log.error("Listing generation failed for chat {}", chatId, e);
             replies.add(BotReplies.LLM_ERROR);
         }
         return replies;
