@@ -1,5 +1,6 @@
 package com.example.aiagentpublisher.bot;
 
+import com.example.aiagentpublisher.domain.ExampleListing;
 import com.example.aiagentpublisher.domain.ListingCase;
 import com.example.aiagentpublisher.domain.ListingCaseRepository;
 import com.example.aiagentpublisher.domain.ListingStatus;
@@ -111,6 +112,7 @@ public class ConversationHandler {
                 : text;
         session.setCategory(category);
         session.setState(ConversationState.COLLECTING_EXAMPLES);
+        persistDraft(session);
         return List.of(BotReplies.ASK_EXAMPLES);
     }
 
@@ -135,6 +137,7 @@ public class ConversationHandler {
     private List<String> acceptExample(ConversationSession session, String exampleText) {
         session.getExamples().add(exampleText);
         session.setAwaitingPasteFallback(false);
+        persistDraft(session);
         return List.of(BotReplies.EXAMPLE_ACCEPTED.formatted(session.getExamples().size()));
     }
 
@@ -160,6 +163,23 @@ public class ConversationHandler {
             replies.add(BotReplies.LLM_ERROR);
         }
         return replies;
+    }
+
+    private void persistDraft(ConversationSession session) {
+        ListingCase draft = repository
+                .findFirstByChatIdAndStatusOrderByCreatedAtDesc(session.getChatId(), ListingStatus.DRAFT)
+                .orElseGet(ListingCase::new);
+        draft.setChatId(session.getChatId());
+        draft.setIdeaText(session.getIdeaText());
+        draft.setCategory(session.getCategory());
+        draft.setStatus(ListingStatus.DRAFT);
+        draft.getExamples().clear();
+        for (String text : session.getExamples()) {
+            ExampleListing example = new ExampleListing();
+            example.setRawText(text);
+            draft.getExamples().add(example);
+        }
+        repository.save(draft);
     }
 
     private List<String> formatResult(PipelineResult result) {

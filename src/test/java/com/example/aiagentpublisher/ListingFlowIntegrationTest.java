@@ -80,4 +80,30 @@ class ListingFlowIntegrationTest {
         assertThat(repository.findByChatIdOrderByCreatedAtDesc(chatId).get(0).getStatus())
                 .isEqualTo(ListingStatus.PUBLISHED);
     }
+
+    @Test
+    void failedGenerationKeepsDraftWithExamples() {
+        when(llmGateway.generate(anyString(), anyString(), eq(CategorySuggestion.class)))
+                .thenReturn(new CategorySuggestion("Электроника → Ноутбуки"));
+        when(llmGateway.generate(anyString(), anyString(), eq(ListingAnalysis.class)))
+                .thenThrow(new RuntimeException("api down"));
+        when(olxListingFetcher.isListingUrl(anyString())).thenReturn(true);
+        when(olxListingFetcher.fetch(anyString())).thenAnswer(inv -> {
+            String url = inv.getArgument(0);
+            return Optional.of(new OlxListing(url, "t", "1 тг", url));
+        });
+
+        long chatId = 101L;
+        handler.handle(chatId, "/new");
+        handler.handle(chatId, "продаю ноутбуки");
+        handler.handle(chatId, "да");
+        handler.handle(chatId, "https://www.olx.kz/d/obyavlenie/p1.html");
+        handler.handle(chatId, "/done");
+
+        List<ListingCase> cases = repository.findByChatIdOrderByCreatedAtDesc(chatId);
+        assertThat(cases).hasSize(1);
+        assertThat(cases.get(0).getStatus()).isEqualTo(ListingStatus.DRAFT);
+        assertThat(cases.get(0).getIdeaText()).isEqualTo("продаю ноутбуки");
+        assertThat(cases.get(0).getExamples()).hasSize(1);
+    }
 }

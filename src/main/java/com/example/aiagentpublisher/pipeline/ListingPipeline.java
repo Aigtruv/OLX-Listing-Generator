@@ -52,7 +52,9 @@ public class ListingPipeline {
             similarityWarning = isTooSimilar(listing, exampleTexts);
         }
 
-        repository.save(toCase(chatId, ideaText, category, exampleTexts, analysis, listing));
+        repository.save(toCase(chatId, ideaText, category, exampleTexts, analysis, listing,
+        repository.findFirstByChatIdAndStatusOrderByCreatedAtDesc(chatId, ListingStatus.DRAFT)
+                        .orElseGet(ListingCase::new)));
         return new PipelineResult(analysis, listing, similarityWarning);
     }
 
@@ -61,8 +63,7 @@ public class ListingPipeline {
     }
 
     private ListingCase toCase(long chatId, String ideaText, String category, List<String> exampleTexts,
-                               ListingAnalysis analysis, GeneratedListing listing) {
-        ListingCase listingCase = new ListingCase();
+                               ListingAnalysis analysis, GeneratedListing listing, ListingCase listingCase) {
         listingCase.setChatId(chatId);
         listingCase.setIdeaText(ideaText);
         listingCase.setCategory(category);
@@ -71,11 +72,15 @@ public class ListingPipeline {
         listingCase.setGeneratedDescription(listing.description());
         listingCase.setPriceAdvice(listing.priceAdvice());
         listingCase.setStatus(ListingStatus.CREATED);
+        listingCase.getExamples().clear();
+        List<String> perExample = analysis.perExampleAnalysis() == null
+                ? List.of()
+                : analysis.perExampleAnalysis();
         for (int i = 0; i < exampleTexts.size(); i++) {
             ExampleListing example = new ExampleListing();
             example.setRawText(exampleTexts.get(i));
-            if (i < analysis.perExampleAnalysis().size()) {
-                example.setAnalysis(analysis.perExampleAnalysis().get(i));
+            if (i < perExample.size()) {
+                example.setAnalysis(perExample.get(i));
             }
             listingCase.getExamples().add(example);
         }

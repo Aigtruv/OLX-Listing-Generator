@@ -1,5 +1,6 @@
 package com.example.aiagentpublisher.bot;
 
+import com.example.aiagentpublisher.domain.ExampleListing;
 import com.example.aiagentpublisher.domain.ListingCase;
 import com.example.aiagentpublisher.domain.ListingCaseRepository;
 import com.example.aiagentpublisher.domain.ListingStatus;
@@ -12,6 +13,7 @@ import com.example.aiagentpublisher.pipeline.PipelineResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -26,6 +28,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -74,6 +77,9 @@ class ConversationHandlerTest {
             String url = inv.getArgument(0);
             return Optional.of(new OlxListing(url, "t", "1 тг", url));
         });
+        lenient().when(repository.findFirstByChatIdAndStatusOrderByCreatedAtDesc(anyLong(), eq(ListingStatus.DRAFT)))
+                .thenReturn(Optional.empty());
+        lenient().when(repository.save(any(ListingCase.class))).thenAnswer(inv -> inv.getArgument(0));
     }
 
     private void driveToExamples(long chatId) {
@@ -146,6 +152,22 @@ class ConversationHandlerTest {
         List<String> replies = handler.handle(5L, listingUrl(6));
 
         assertThat(replies).containsExactly(BotReplies.EXAMPLES_LIMIT);
+    }
+
+    @Test
+    void persistsDraftAfterExampleAccepted() {
+        driveToExamples(30L);
+        handler.handle(30L, listingUrl(1));
+
+        ArgumentCaptor<ListingCase> captor = ArgumentCaptor.forClass(ListingCase.class);
+        verify(repository, atLeastOnce()).save(captor.capture());
+        ListingCase draft = captor.getValue();
+        assertThat(draft.getStatus()).isEqualTo(ListingStatus.DRAFT);
+        assertThat(draft.getChatId()).isEqualTo(30L);
+        assertThat(draft.getIdeaText()).isEqualTo("продаю ноутбуки");
+        assertThat(draft.getCategory()).isEqualTo("Электроника → Ноутбуки");
+        assertThat(draft.getExamples()).extracting(ExampleListing::getRawText)
+                .containsExactly(formattedExample(1));
     }
 
     @Test

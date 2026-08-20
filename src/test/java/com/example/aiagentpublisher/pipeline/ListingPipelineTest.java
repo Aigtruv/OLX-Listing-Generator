@@ -16,9 +16,11 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
@@ -45,6 +47,8 @@ class ListingPipelineTest {
     void setUp() {
         pipeline = new ListingPipeline(llm, new PromptFactory(), new SimilarityGuard(), repository);
         lenient().when(repository.save(any(ListingCase.class))).thenAnswer(inv -> inv.getArgument(0));
+        lenient().when(repository.findFirstByChatIdAndStatusOrderByCreatedAtDesc(anyLong(), eq(ListingStatus.DRAFT)))
+                .thenReturn(Optional.empty());
     }
 
     @Test
@@ -78,6 +82,28 @@ class ListingPipelineTest {
         assertThat(saved.getExamples()).hasSize(1);
         assertThat(saved.getExamples().get(0).getRawText()).isEqualTo(EXAMPLE);
         assertThat(saved.getExamples().get(0).getAnalysis()).isEqualTo("анализ 1");
+    }
+
+    @Test
+    void upgradesExistingDraftInsteadOfInsertingAnotherCase() {
+        ListingCase draft = new ListingCase();
+        draft.setChatId(9L);
+        draft.setStatus(ListingStatus.DRAFT);
+        when(repository.findFirstByChatIdAndStatusOrderByCreatedAtDesc(9L, ListingStatus.DRAFT))
+                .thenReturn(Optional.of(draft));
+        when(llm.generate(anyString(), anyString(), eq(ListingAnalysis.class)))
+                .thenReturn(new ListingAnalysis(List.of("анализ 1"), "шаблон"));
+        when(llm.generate(anyString(), anyString(), eq(GeneratedListing.class)))
+                .thenReturn(new GeneratedListing("Ноутбук для учёбы", "Совсем другое описание без совпадений.",
+                        "150 000 тг", List.of("фото экрана")));
+
+        pipeline.run(9L, "продаю ноутбуки", "Электроника → Ноутбуки", List.of(EXAMPLE));
+
+        ArgumentCaptor<ListingCase> captor = ArgumentCaptor.forClass(ListingCase.class);
+        verify(repository).save(captor.capture());
+        assertThat(captor.getValue()).isSameAs(draft);
+        assertThat(draft.getStatus()).isEqualTo(ListingStatus.CREATED);
+        assertThat(draft.getGeneratedTitle()).isEqualTo("Ноутбук для учёбы");
     }
 
     @Test
