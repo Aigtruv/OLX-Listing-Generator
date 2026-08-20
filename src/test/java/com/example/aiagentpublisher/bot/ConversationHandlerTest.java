@@ -171,6 +171,38 @@ class ConversationHandlerTest {
     }
 
     @Test
+    void formatsResultWhenPhotoChecklistIsNull() {
+        driveToExamples(31L);
+        handler.handle(31L, listingUrl(1));
+        when(pipeline.run(anyLong(), anyString(), anyString(), anyList()))
+                .thenReturn(new PipelineResult(
+                        new ListingAnalysis(List.of("анализ"), "шаблон"),
+                        new GeneratedListing("Ноутбук Dell", "Описание.", "150 000 тг", null),
+                        false));
+
+        List<String> replies = handler.handle(31L, "/done");
+
+        String all = String.join("\n", replies);
+        assertThat(all).contains("Ноутбук Dell").contains("Описание.").contains("150 000 тг");
+        assertThat(all).doesNotContain(BotReplies.LLM_ERROR);
+    }
+
+    @Test
+    void statusIncludesLatestGeneratedListing() {
+        ListingCase created = new ListingCase();
+        created.setGeneratedTitle("Ноутбук Dell");
+        created.setGeneratedDescription("Описание.");
+        created.setPriceAdvice("150 000 тг");
+        created.setStatus(ListingStatus.CREATED);
+        created.setIdeaText("продаю ноутбуки");
+        when(repository.findByChatIdOrderByCreatedAtDesc(40L)).thenReturn(List.of(created));
+
+        List<String> replies = handler.handle(40L, "/status");
+
+        assertThat(replies.get(0)).contains("Ноутбук Dell").contains("Описание.").contains("150 000 тг");
+    }
+
+    @Test
     void pipelineFailureKeepsStateAndExamples() {
         driveToExamples(6L);
         handler.handle(6L, listingUrl(1));

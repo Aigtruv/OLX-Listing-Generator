@@ -4,6 +4,7 @@ import org.assertj.core.groups.Tuple;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
@@ -15,6 +16,7 @@ import org.telegram.telegrambots.meta.generics.TelegramClient;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -66,5 +68,34 @@ class ListingBotTest {
         bot.consume(update);
 
         verifyNoInteractions(handler, telegramClient);
+    }
+
+    @Test
+    void doneSendsGeneratingAckBeforeHandlerReplies() throws TelegramApiException {
+        when(handler.handle(42L, "/done")).thenReturn(List.of("результат"));
+        ListingBot bot = new ListingBot(handler, telegramClient);
+
+        bot.consume(textUpdate(42L, "/done"));
+
+        InOrder order = inOrder(telegramClient, handler);
+        ArgumentCaptor<SendMessage> first = ArgumentCaptor.forClass(SendMessage.class);
+        order.verify(telegramClient).execute(first.capture());
+        assertThat(first.getValue().getText()).isEqualTo(BotReplies.GENERATING);
+        order.verify(handler).handle(42L, "/done");
+        ArgumentCaptor<SendMessage> second = ArgumentCaptor.forClass(SendMessage.class);
+        order.verify(telegramClient).execute(second.capture());
+        assertThat(second.getValue().getText()).isEqualTo("результат");
+    }
+
+    @Test
+    void handlerCrashSendsLlmError() throws TelegramApiException {
+        when(handler.handle(42L, "x")).thenThrow(new RuntimeException("boom"));
+        ListingBot bot = new ListingBot(handler, telegramClient);
+
+        bot.consume(textUpdate(42L, "x"));
+
+        ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
+        verify(telegramClient).execute(captor.capture());
+        assertThat(captor.getValue().getText()).isEqualTo(BotReplies.LLM_ERROR);
     }
 }

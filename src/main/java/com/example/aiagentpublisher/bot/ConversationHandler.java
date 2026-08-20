@@ -71,6 +71,20 @@ public class ConversationHandler {
         cases.stream().limit(5).forEach(c -> sb.append("• ")
                 .append(StringUtils.defaultIfBlank(c.getGeneratedTitle(), c.getIdeaText()))
                 .append(" — ").append(c.getStatus()).append("\n"));
+        ListingCase latest = cases.get(0);
+        if (StringUtils.isNotBlank(latest.getGeneratedTitle())
+                || StringUtils.isNotBlank(latest.getGeneratedDescription())) {
+            sb.append("\nПоследнее объявление:\n");
+            if (StringUtils.isNotBlank(latest.getGeneratedTitle())) {
+                sb.append("📝 Заголовок:\n").append(latest.getGeneratedTitle()).append("\n");
+            }
+            if (StringUtils.isNotBlank(latest.getGeneratedDescription())) {
+                sb.append("📄 Описание:\n").append(latest.getGeneratedDescription()).append("\n");
+            }
+            if (StringUtils.isNotBlank(latest.getPriceAdvice())) {
+                sb.append("💰 Цена: ").append(latest.getPriceAdvice()).append("\n");
+            }
+        }
         return List.of(sb.toString());
     }
 
@@ -186,20 +200,25 @@ public class ConversationHandler {
         List<String> replies = new ArrayList<>();
 
         StringBuilder analysis = new StringBuilder("📊 Анализ примеров:\n");
-        List<String> perExample = result.analysis().perExampleAnalysis();
+        List<String> perExample = result.analysis().perExampleAnalysis() == null
+                ? List.of()
+                : result.analysis().perExampleAnalysis();
         for (int i = 0; i < perExample.size(); i++) {
             analysis.append(i + 1).append(". ").append(perExample.get(i)).append("\n");
         }
-        analysis.append("\n🏆 Шаблон успеха:\n").append(result.analysis().winningTemplate());
+        analysis.append("\n🏆 Шаблон успеха:\n")
+                .append(StringUtils.defaultString(result.analysis().winningTemplate()));
         replies.add(analysis.toString());
 
         GeneratedListing listing = result.listing();
-        replies.add("📝 Заголовок:\n" + listing.title());
-        replies.add("📄 Описание:\n" + listing.description());
+        replies.add("📝 Заголовок:\n" + StringUtils.defaultString(listing.title()));
+        replies.add("📄 Описание:\n" + StringUtils.defaultString(listing.description()));
 
-        StringBuilder tail = new StringBuilder("💰 Цена: ").append(listing.priceAdvice());
+        StringBuilder tail = new StringBuilder("💰 Цена: ")
+                .append(StringUtils.defaultString(listing.priceAdvice()));
         tail.append("\n\n📷 Фото-чеклист:\n");
-        for (String shot : listing.photoChecklist()) {
+        List<String> shots = listing.photoChecklist() == null ? List.of() : listing.photoChecklist();
+        for (String shot : shots) {
             tail.append("• ").append(shot).append("\n");
         }
         tail.append("\nОпубликуйте на OLX и отправьте /published.");

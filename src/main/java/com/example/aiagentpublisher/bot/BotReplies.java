@@ -23,6 +23,8 @@ public final class BotReplies {
             "Примеров меньше трёх — анализ будет менее точным, но продолжаю.";
     public static final String LLM_ERROR =
             "Не получилось получить ответ от ИИ. Попробуйте ещё раз чуть позже — ваши данные сохранены.";
+    public static final String GENERATING =
+            "Готовлю объявление, это займёт около минуты. Не отправляйте /done повторно.";
     public static final String CANCELLED = "Ок, отменил. /new — начать заново.";
     public static final String PUBLISHED_OK = "Отметил как опубликованное: «%s». Удачных продаж!";
     public static final String NOTHING_TO_PUBLISH =
