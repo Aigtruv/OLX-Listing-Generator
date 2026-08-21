@@ -8,6 +8,8 @@ import com.example.aiagentpublisher.llm.GeneratedListing;
 import com.example.aiagentpublisher.olx.OlxListingFetcher;
 import com.example.aiagentpublisher.pipeline.ListingPipeline;
 import com.example.aiagentpublisher.pipeline.PipelineResult;
+import com.example.aiagentpublisher.sourcing.SourcingOffer;
+import com.example.aiagentpublisher.sourcing.SourcingScout;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,13 +29,16 @@ public class ConversationHandler {
     private final ListingPipeline pipeline;
     private final ListingCaseRepository repository;
     private final OlxListingFetcher olxListingFetcher;
+    private final SourcingScout sourcingScout;
 
     public ConversationHandler(ConversationSessionStore sessions, ListingPipeline pipeline,
-                               ListingCaseRepository repository, OlxListingFetcher olxListingFetcher) {
+                               ListingCaseRepository repository, OlxListingFetcher olxListingFetcher,
+                               SourcingScout sourcingScout) {
         this.sessions = sessions;
         this.pipeline = pipeline;
         this.repository = repository;
         this.olxListingFetcher = olxListingFetcher;
+        this.sourcingScout = sourcingScout;
     }
 
     public List<String> handle(long chatId, String rawText) {
@@ -101,6 +106,7 @@ public class ConversationHandler {
     private List<String> handleText(ConversationSession session, String text) {
         return switch (session.getState()) {
             case AWAITING_IDEA -> captureIdea(session, text);
+            case AWAITING_SOURCING_PICK -> pickSourcing(session, text);
             case AWAITING_CATEGORY_CONFIRM -> confirmCategory(session, text);
             case COLLECTING_EXAMPLES -> collectExample(session, text);
             case IDLE -> List.of(BotReplies.HINT);
@@ -108,9 +114,55 @@ public class ConversationHandler {
     }
 
     private List<String> captureIdea(ConversationSession session, String idea) {
+        session.setIdeaText(idea);
+        session.getSourcingPicks().clear();
+        try {
+            List<SourcingOffer> offers = sourcingScout.search(idea);
+            if (offers != null) {
+                session.getSourcingPicks().addAll(offers);
+            }
+        } catch (RuntimeException e) {
+            log.error("Sourcing failed for chat {}", session.getChatId(), e);
+            session.setState(ConversationState.AWAITING_SOURCING_PICK);
+            return List.of(BotReplies.SOURCING_NONE);
+        }
+        session.setState(ConversationState.AWAITING_SOURCING_PICK);
+        if (session.getSourcingPicks().isEmpty()) {
+            return List.of(BotReplies.SOURCING_NONE);
+        }
+        return List.of(formatSourcingPicks(session.getSourcingPicks()));
+    }
+
+    private List<String> pickSourcing(ConversationSession session, String text) {
+        if (StringUtils.equalsIgnoreCase(text, "пропустить")) {
+            return classifyAndAskCategory(session, session.getIdeaText());
+        }
+        int index = parsePick(text);
+        if (index < 0 || index >= session.getSourcingPicks().size()) {
+            return List.of(BotReplies.SOURCING_BAD_PICK);
+        }
+        SourcingOffer offer = session.getSourcingPicks().get(index);
+        String enriched = session.getIdeaText() + "\nЗакупка: " + offer.title() + " " + offer.url();
+        session.setIdeaText(enriched);
+        return classifyAndAskCategory(session, enriched);
+    }
+
+    private static int parsePick(String text) {
+        if (StringUtils.equals(text, "1")) {
+            return 0;
+        }
+        if (StringUtils.equals(text, "2")) {
+            return 1;
+        }
+        if (StringUtils.equals(text, "3")) {
+            return 2;
+        }
+        return -1;
+    }
+
+    private List<String> classifyAndAskCategory(ConversationSession session, String idea) {
         try {
             String category = pipeline.classifyCategory(idea);
-            session.setIdeaText(idea);
             session.setSuggestedCategory(category);
             session.setState(ConversationState.AWAITING_CATEGORY_CONFIRM);
             return List.of(BotReplies.CATEGORY_CONFIRM.formatted(category));
@@ -118,6 +170,18 @@ public class ConversationHandler {
             log.error("Category classification failed for chat {}", session.getChatId(), e);
             return List.of(BotReplies.LLM_ERROR);
         }
+    }
+
+    private static String formatSourcingPicks(List<SourcingOffer> offers) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < offers.size(); i++) {
+            SourcingOffer offer = offers.get(i);
+            sb.append(i + 1).append(". ").append(offer.title())
+                    .append(" — ").append(offer.priceKzt()).append(" ₸\n")
+                    .append(offer.url()).append("\n");
+        }
+        sb.append("\n").append(BotReplies.SOURCING_PICK);
+        return sb.toString();
     }
 
     private List<String> confirmCategory(ConversationSession session, String text) {

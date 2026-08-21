@@ -10,6 +10,7 @@ import com.example.aiagentpublisher.llm.ListingAnalysis;
 import com.example.aiagentpublisher.llm.LlmGateway;
 import com.example.aiagentpublisher.olx.OlxListing;
 import com.example.aiagentpublisher.olx.OlxListingFetcher;
+import com.example.aiagentpublisher.sourcing.SourcingScout;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -40,6 +41,9 @@ class ListingFlowIntegrationTest {
     @MockitoBean
     private OlxListingFetcher olxListingFetcher;
 
+    @MockitoBean
+    private SourcingScout sourcingScout;
+
     @Test
     void fullFlowPersistsCaseAndPublishesIt() {
         when(llmGateway.generate(anyString(), anyString(), eq(CategorySuggestion.class)))
@@ -58,10 +62,12 @@ class ListingFlowIntegrationTest {
             String url = inv.getArgument(0);
             return Optional.of(new OlxListing(url, "t", "1 тг", url));
         });
+        when(sourcingScout.search(anyString())).thenReturn(List.of());
 
         long chatId = 100L;
         handler.handle(chatId, "/new");
         handler.handle(chatId, "продаю ноутбуки");
+        handler.handle(chatId, "пропустить");
         handler.handle(chatId, "да");
         handler.handle(chatId, "https://www.olx.kz/d/obyavlenie/p1.html");
         handler.handle(chatId, "https://www.olx.kz/d/obyavlenie/p2.html");
@@ -92,10 +98,12 @@ class ListingFlowIntegrationTest {
             String url = inv.getArgument(0);
             return Optional.of(new OlxListing(url, "t", "1 тг", url));
         });
+        when(sourcingScout.search(anyString())).thenReturn(List.of());
 
         long chatId = 101L;
         handler.handle(chatId, "/new");
         handler.handle(chatId, "продаю ноутбуки");
+        handler.handle(chatId, "пропустить");
         handler.handle(chatId, "да");
         handler.handle(chatId, "https://www.olx.kz/d/obyavlenie/p1.html");
         handler.handle(chatId, "/done");

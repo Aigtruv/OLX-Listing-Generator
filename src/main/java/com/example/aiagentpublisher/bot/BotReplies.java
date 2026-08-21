@@ -4,6 +4,14 @@ public final class BotReplies {
 
     public static final String ASK_IDEA =
             "Опишите вашу идею — что продаём? Например: «продаю ноутбуки».";
+    public static final String SOURCING_SEARCHING =
+            "Ищу закупки на AliExpress, Alibaba, 1688, Amazon.de, eBay.de…";
+    public static final String SOURCING_NONE =
+            "Не нашёл предложений с ценой за 1 шт. Напишите «пропустить» или /cancel.";
+    public static final String SOURCING_PICK =
+            "Ответьте 1, 2 или 3 — или «пропустить».";
+    public static final String SOURCING_BAD_PICK =
+            "Ответьте 1, 2, 3 или «пропустить».";
     public static final String CATEGORY_CONFIRM =
             "Категория: %s%nВерно? Ответьте «да» или пришлите свой вариант категории.";
     public static final String ASK_EXAMPLES =

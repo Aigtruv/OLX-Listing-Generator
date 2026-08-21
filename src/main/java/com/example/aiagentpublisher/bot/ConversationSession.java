@@ -1,5 +1,7 @@
 package com.example.aiagentpublisher.bot;
 
+import com.example.aiagentpublisher.sourcing.SourcingOffer;
+
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -12,6 +14,7 @@ public class ConversationSession {
     private String suggestedCategory;
     private String category;
     private final List<String> examples = new ArrayList<>();
+    private final List<SourcingOffer> sourcingPicks = new ArrayList<>();
     private boolean awaitingPasteFallback;
     private Instant lastActivity;
 
@@ -62,6 +65,10 @@ public class ConversationSession {
 
     public List<String> getExamples() {
         return examples;
+    }
+
+    public List<SourcingOffer> getSourcingPicks() {
+        return sourcingPicks;
     }
 
     public boolean isAwaitingPasteFallback() {

@@ -10,6 +10,8 @@ import com.example.aiagentpublisher.olx.OlxListing;
 import com.example.aiagentpublisher.olx.OlxListingFetcher;
 import com.example.aiagentpublisher.pipeline.ListingPipeline;
 import com.example.aiagentpublisher.pipeline.PipelineResult;
+import com.example.aiagentpublisher.sourcing.SourcingOffer;
+import com.example.aiagentpublisher.sourcing.SourcingScout;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,6 +29,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.lenient;
@@ -44,6 +47,9 @@ class ConversationHandlerTest {
 
     @Mock
     private OlxListingFetcher olxListingFetcher;
+
+    @Mock
+    private SourcingScout sourcingScout;
 
     private ConversationHandler handler;
 
@@ -68,7 +74,8 @@ class ConversationHandlerTest {
     void setUp() {
         ConversationSessionStore store =
                 new ConversationSessionStore(Clock.systemUTC(), Duration.ofHours(24));
-        handler = new ConversationHandler(store, pipeline, repository, olxListingFetcher);
+        handler = new ConversationHandler(store, pipeline, repository, olxListingFetcher, sourcingScout);
+        lenient().when(sourcingScout.search(anyString())).thenReturn(List.of());
         lenient().when(olxListingFetcher.isListingUrl(anyString())).thenAnswer(inv -> {
             String text = inv.getArgument(0);
             return text != null && text.contains("olx.kz");
@@ -86,6 +93,7 @@ class ConversationHandlerTest {
         when(pipeline.classifyCategory("продаю ноутбуки")).thenReturn("Электроника → Ноутбуки");
         handler.handle(chatId, "/new");
         handler.handle(chatId, "продаю ноутбуки");
+        handler.handle(chatId, "пропустить");
         handler.handle(chatId, "да");
     }
 
@@ -115,6 +123,7 @@ class ConversationHandlerTest {
 
         handler.handle(2L, "/new");
         handler.handle(2L, "идея");
+        handler.handle(2L, "пропустить");
         handler.handle(2L, "Моя категория");
         handler.handle(2L, listingUrl(1));
         handler.handle(2L, "/done");
@@ -218,17 +227,45 @@ class ConversationHandlerTest {
     }
 
     @Test
-    void classifyFailureKeepsAwaitingIdea() {
+    void classifyFailureKeepsSourcingPick() {
         when(pipeline.classifyCategory("идея"))
                 .thenThrow(new RuntimeException("api down"))
                 .thenReturn("Категория");
 
         handler.handle(7L, "/new");
-        List<String> failed = handler.handle(7L, "идея");
-        List<String> retried = handler.handle(7L, "идея");
+        handler.handle(7L, "идея");
+        List<String> failed = handler.handle(7L, "пропустить");
+        List<String> retried = handler.handle(7L, "пропустить");
 
         assertThat(failed).containsExactly(BotReplies.LLM_ERROR);
         assertThat(retried.get(0)).contains("Категория");
+    }
+
+    @Test
+    void ideaShowsTopOffersThenPickEnrichesIdea() {
+        when(sourcingScout.search("хочу продавать gps трекеры")).thenReturn(List.of(
+                new SourcingOffer("ali", "AliExpress", "GPS A", "https://a", 1000),
+                new SourcingOffer("ebay", "eBay.de", "GPS B", "https://b", 2000),
+                new SourcingOffer("amz", "Amazon.de", "GPS C", "https://c", 3000)));
+        when(pipeline.classifyCategory(contains("GPS B"))).thenReturn("Электроника → GPS");
+
+        handler.handle(50L, "/new");
+        List<String> found = handler.handle(50L, "хочу продавать gps трекеры");
+        assertThat(String.join("\n", found)).contains("GPS A").contains("1000 ₸").contains(BotReplies.SOURCING_PICK);
+
+        List<String> afterPick = handler.handle(50L, "2");
+        assertThat(afterPick.get(0)).contains("Электроника → GPS");
+        verify(pipeline).classifyCategory(contains("https://b"));
+    }
+
+    @Test
+    void skipSourcingClassifiesOriginalIdea() {
+        when(pipeline.classifyCategory("продаю ноутбуки")).thenReturn("Электроника → Ноутбуки");
+        handler.handle(51L, "/new");
+        handler.handle(51L, "продаю ноутбуки");
+        List<String> replies = handler.handle(51L, "пропустить");
+        assertThat(replies.get(0)).contains("Электроника → Ноутбуки");
+        verify(pipeline).classifyCategory("продаю ноутбуки");
     }
 
     @Test
