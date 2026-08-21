@@ -1,16 +1,21 @@
 package com.example.aiagentpublisher.sourcing;
 
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 import java.util.Optional;
 
+@Component
 public class FxRates {
 
     private final double usdKzt;
     private final double eurKzt;
     private final double cnyKzt;
 
-    public FxRates(double usdKzt, double eurKzt, double cnyKzt) {
+    public FxRates(@Value("${app.fx.usd-kzt}") double usdKzt,
+                   @Value("${app.fx.eur-kzt}") double eurKzt,
+                   @Value("${app.fx.cny-kzt}") double cnyKzt) {
         this.usdKzt = usdKzt;
         this.eurKzt = eurKzt;
         this.cnyKzt = cnyKzt;
