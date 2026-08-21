@@ -15,10 +15,13 @@ public class ListingBot implements LongPollingSingleThreadUpdateConsumer {
 
     private final ConversationHandler handler;
     private final TelegramClient telegramClient;
+    private final ConversationSessionStore sessions;
 
-    public ListingBot(ConversationHandler handler, TelegramClient telegramClient) {
+    public ListingBot(ConversationHandler handler, TelegramClient telegramClient,
+                      ConversationSessionStore sessions) {
         this.handler = handler;
         this.telegramClient = telegramClient;
+        this.sessions = sessions;
     }
 
     @Override
@@ -30,6 +33,10 @@ public class ListingBot implements LongPollingSingleThreadUpdateConsumer {
         String text = update.getMessage().getText();
         if (StringUtils.equals(text, "/done")) {
             send(chatId, BotReplies.GENERATING);
+        } else if (sessions.get(chatId).getState() == ConversationState.AWAITING_IDEA
+                && StringUtils.isNotBlank(text)
+                && !StringUtils.startsWith(text, "/")) {
+            send(chatId, BotReplies.SOURCING_SEARCHING);
         }
         try {
             for (String reply : handler.handle(chatId, text)) {

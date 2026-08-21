@@ -19,14 +19,17 @@ public class TelegramBotStarter implements ApplicationRunner {
     private final ConversationHandler handler;
     private final String token;
     private final TelegramClient telegramClient;
+    private final ConversationSessionStore sessions;
     private TelegramBotsLongPollingApplication botsApplication;
 
     public TelegramBotStarter(ConversationHandler handler,
                               @Value("${app.telegram.token:}") String token,
-                              TelegramClient telegramClient) {
+                              TelegramClient telegramClient,
+                              ConversationSessionStore sessions) {
         this.handler = handler;
         this.token = token;
         this.telegramClient = telegramClient;
+        this.sessions = sessions;
     }
 
     @Override
@@ -36,7 +39,7 @@ public class TelegramBotStarter implements ApplicationRunner {
             return;
         }
         botsApplication = new TelegramBotsLongPollingApplication();
-        botsApplication.registerBot(token, new ListingBot(handler, telegramClient));
+        botsApplication.registerBot(token, new ListingBot(handler, telegramClient, sessions));
         log.info("Telegram bot started (long polling)");
     }
 

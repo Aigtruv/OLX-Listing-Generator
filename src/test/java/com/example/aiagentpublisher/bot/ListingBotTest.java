@@ -13,6 +13,8 @@ import org.telegram.telegrambots.meta.api.objects.message.Message;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
+import java.time.Clock;
+import java.time.Duration;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -43,10 +45,14 @@ class ListingBotTest {
         return update;
     }
 
+    private ConversationSessionStore idleStore() {
+        return new ConversationSessionStore(Clock.systemUTC(), Duration.ofHours(24));
+    }
+
     @Test
     void forwardsTextAndSendsEachReply() throws TelegramApiException {
         when(handler.handle(42L, "/new")).thenReturn(List.of("ответ 1", "ответ 2"));
-        ListingBot bot = new ListingBot(handler, telegramClient);
+        ListingBot bot = new ListingBot(handler, telegramClient, idleStore());
 
         bot.consume(textUpdate(42L, "/new"));
 
@@ -63,7 +69,7 @@ class ListingBotTest {
     void ignoresUpdatesWithoutTextMessage() {
         Update update = mock(Update.class);
         when(update.hasMessage()).thenReturn(false);
-        ListingBot bot = new ListingBot(handler, telegramClient);
+        ListingBot bot = new ListingBot(handler, telegramClient, idleStore());
 
         bot.consume(update);
 
@@ -73,7 +79,7 @@ class ListingBotTest {
     @Test
     void doneSendsGeneratingAckBeforeHandlerReplies() throws TelegramApiException {
         when(handler.handle(42L, "/done")).thenReturn(List.of("результат"));
-        ListingBot bot = new ListingBot(handler, telegramClient);
+        ListingBot bot = new ListingBot(handler, telegramClient, idleStore());
 
         bot.consume(textUpdate(42L, "/done"));
 
@@ -90,12 +96,29 @@ class ListingBotTest {
     @Test
     void handlerCrashSendsLlmError() throws TelegramApiException {
         when(handler.handle(42L, "x")).thenThrow(new RuntimeException("boom"));
-        ListingBot bot = new ListingBot(handler, telegramClient);
+        ListingBot bot = new ListingBot(handler, telegramClient, idleStore());
 
         bot.consume(textUpdate(42L, "x"));
 
         ArgumentCaptor<SendMessage> captor = ArgumentCaptor.forClass(SendMessage.class);
         verify(telegramClient).execute(captor.capture());
         assertThat(captor.getValue().getText()).isEqualTo(BotReplies.LLM_ERROR);
+    }
+
+    @Test
+    void ideaWhileAwaitingIdeaSendsSearchingAckFirst() throws TelegramApiException {
+        ConversationSessionStore store =
+                new ConversationSessionStore(Clock.systemUTC(), Duration.ofHours(24));
+        store.get(42L).setState(ConversationState.AWAITING_IDEA);
+        when(handler.handle(42L, "gps трекеры")).thenReturn(List.of("1. …"));
+        ListingBot bot = new ListingBot(handler, telegramClient, store);
+
+        bot.consume(textUpdate(42L, "gps трекеры"));
+
+        InOrder order = inOrder(telegramClient, handler);
+        ArgumentCaptor<SendMessage> first = ArgumentCaptor.forClass(SendMessage.class);
+        order.verify(telegramClient).execute(first.capture());
+        assertThat(first.getValue().getText()).isEqualTo(BotReplies.SOURCING_SEARCHING);
+        order.verify(handler).handle(42L, "gps трекеры");
     }
 }
